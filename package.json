@@ -1,0 +1,30 @@
+{
+  "name": "college-attendance-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-style monorepo for QR & Facial Biometric College Attendance System",
+  "type": "module",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "install:backend": "npm --prefix backend install",
+    "install:frontend": "npm --prefix frontend install",
+    "install:all": "npm install && npm run install:backend && npm run install:frontend",
+    "build:frontend": "npm --prefix frontend run build",
+    "start:backend": "npm --prefix backend run start",
+    "lint": "npm --prefix backend run lint && npm --prefix frontend run lint",
+    "test": "npm --prefix backend run test"
+  },
+  "keywords": [
+    "attendance",
+    "college",
+    "mern",
+    "qr-code",
+    "facial-recognition",
+    "express",
+    "react",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "ISC"
+}
