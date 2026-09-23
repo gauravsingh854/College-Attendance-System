@@ -3,12 +3,14 @@ import { env } from './config/env.js';
 import { connectDB } from './config/db.js';
 
 const startServer = async () => {
-  // Connect to Database
-  await connectDB();
-
   const server = app.listen(env.PORT, () => {
     console.log(`[Server] Backend listening on http://localhost:${env.PORT} in ${env.NODE_ENV} mode`);
     console.log(`[Server] Health check available at http://localhost:${env.PORT}/api/health`);
+  });
+
+  // Connect to Database
+  connectDB().catch((err) => {
+    console.error(`[Database Error] Initial connection failed: ${err.message}`);
   });
 
   const shutdown = () => {
