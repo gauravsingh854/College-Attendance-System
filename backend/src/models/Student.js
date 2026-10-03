@@ -15,9 +15,9 @@ const studentSchema = new mongoose.Schema(
       trim: true,
       uppercase: true,
     },
-    department: {
+    branch: {
       type: String,
-      required: [true, 'Department is required'],
+      required: [true, 'Branch is required'],
       trim: true,
     },
     semester: {
@@ -26,6 +26,22 @@ const studentSchema = new mongoose.Schema(
       min: 1,
       max: 12,
     },
+    section: {
+      type: String,
+      required: [true, 'Section is required'],
+      enum: ['A', 'B', 'C', 'D'],
+    },
+    academicYear: {
+      type: String,
+      required: [true, 'Academic Year is required'],
+      enum: ['1st Year', '2nd Year', '3rd Year', '4th Year'],
+    },
+    enrolledSubjects: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Subject',
+      },
+    ],
     faceDescriptor: {
       type: [Number], // 128-dimensional embedding array
       default: [],

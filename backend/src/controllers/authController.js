@@ -1,22 +1,67 @@
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { User } from '../models/User.js';
+import { Student } from '../models/Student.js';
+import { Teacher } from '../models/Teacher.js';
 import { generateAuthToken } from '../services/tokenService.js';
 
 export const register = asyncHandler(async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { 
+    name, email, password, role, 
+    rollNumber, branch, section, academicYear, semester, enrolledSubjects,
+    facultyId, designation, teachingAssignments, phoneNumber
+  } = req.body;
 
   const existingUser = await User.findOne({ email });
   if (existingUser) {
     throw new ApiError(409, 'User with this email already exists');
   }
 
+  const roleToSet = role || 'student';
+
+  if (roleToSet === 'student') {
+    const existingStudent = await Student.findOne({ rollNumber: rollNumber.toUpperCase() });
+    if (existingStudent) {
+      throw new ApiError(409, 'Student with this roll number already exists');
+    }
+  }
+
+  if (roleToSet === 'teacher') {
+    const existingTeacher = await Teacher.findOne({ facultyId: facultyId.toUpperCase() });
+    if (existingTeacher) {
+      throw new ApiError(409, 'Teacher with this faculty ID already exists');
+    }
+  }
+
   const user = await User.create({
     name,
     email,
     password,
-    role: role || 'student',
+    role: roleToSet,
   });
+
+  if (roleToSet === 'student') {
+    await Student.create({
+      user: user._id,
+      rollNumber: rollNumber.toUpperCase(),
+      branch,
+      section,
+      academicYear,
+      semester,
+      enrolledSubjects,
+      consentGiven: true, // They must consent to register
+      consentDate: new Date()
+    });
+  } else if (roleToSet === 'teacher') {
+    await Teacher.create({
+      user: user._id,
+      facultyId: facultyId.toUpperCase(),
+      branch,
+      designation,
+      teachingAssignments,
+      phoneNumber
+    });
+  }
 
   const token = generateAuthToken(user);
 

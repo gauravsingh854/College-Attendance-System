@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { sessionApi } from '../../api/sessionApi.js';
+import { teacherApi } from '../../api/teacherApi.js';
+import DisplayQrModal from '../../components/qr/DisplayQrModal.jsx';
 import {
   Users,
   CalendarCheck,
@@ -14,23 +16,28 @@ import {
 export const TeacherDashboard = () => {
   const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
+  const [assignedClasses, setAssignedClasses] = useState([]);
+  const [selectedSessionForQr, setSelectedSessionForQr] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchSessions = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const res = await sessionApi.getMySessions();
-        if (res?.data) {
-          setSessions(res.data);
-        }
+        const [sessionsRes, classesRes] = await Promise.all([
+          sessionApi.getMySessions(),
+          teacherApi.getAssignedClasses()
+        ]);
+        
+        if (sessionsRes?.data) setSessions(sessionsRes.data);
+        if (classesRes?.data) setAssignedClasses(classesRes.data);
       } catch (err) {
-        console.warn('Could not fetch teacher sessions:', err.message);
+        console.warn('Could not fetch teacher dashboard data:', err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSessions();
+    fetchDashboardData();
   }, []);
 
   return (
@@ -86,17 +93,50 @@ export const TeacherDashboard = () => {
         <div className="glass-panel" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
             <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>
-              STUDENT ROSTER
+              ASSIGNED CLASSES
             </span>
             <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)' }}>
               <Users size={20} color="var(--accent-emerald)" />
             </div>
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800 }}>48</div>
+          <div style={{ fontSize: '2rem', fontWeight: 800 }}>{assignedClasses.length}</div>
           <div style={{ color: 'var(--accent-emerald)', fontSize: '0.8rem', marginTop: '6px' }}>
-            Enrolled with biometric consent
+            Total unique sections
           </div>
         </div>
+      </div>
+
+      {/* Assigned Classes */}
+      <div style={{ marginTop: '32px' }}>
+        <h3 style={{ fontSize: '1.2rem', marginBottom: '20px' }}>My Assigned Classes</h3>
+        {assignedClasses.length === 0 ? (
+          <div className="glass-panel" style={{ padding: '36px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <p>You have no classes assigned yet.</p>
+          </div>
+        ) : (
+          <div className="card-grid">
+            {assignedClasses.map(cls => (
+              <div key={cls._id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <h4 style={{ fontSize: '1.1rem', color: 'var(--accent-cyan)' }}>
+                    {cls.subject?.name}
+                  </h4>
+                  <span className="badge badge-present">{cls.subject?.code}</span>
+                </div>
+                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                  <div>{cls.branch} • Sec {cls.section}</div>
+                  <div>{cls.academicYear} • Sem {cls.semester}</div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  <span style={{ fontSize: '0.85rem' }}><strong>{cls.studentCount}</strong> Students</span>
+                  <Link to={`/teacher/classes/${cls._id}/students`} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+                    View Students
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Recent Sessions Table */}
@@ -142,7 +182,11 @@ export const TeacherDashboard = () => {
                       </span>
                     </td>
                     <td style={{ padding: '14px 16px' }}>
-                      <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                        onClick={() => setSelectedSessionForQr(sess._id)}
+                      >
                         Display QR
                       </button>
                     </td>
@@ -153,6 +197,13 @@ export const TeacherDashboard = () => {
           </div>
         )}
       </div>
+
+      {selectedSessionForQr && (
+        <DisplayQrModal 
+          sessionId={selectedSessionForQr} 
+          onClose={() => setSelectedSessionForQr(null)} 
+        />
+      )}
     </div>
   );
 };

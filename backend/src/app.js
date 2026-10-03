@@ -10,6 +10,7 @@ import studentRoutes from './routes/studentRoutes.js';
 import teacherRoutes from './routes/teacherRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
+import subjectRoutes from './routes/subjectRoutes.js';
 
 const app = express();
 
@@ -46,6 +47,7 @@ apiV1Router.use('/students', studentRoutes);
 apiV1Router.use('/teachers', teacherRoutes);
 apiV1Router.use('/sessions', sessionRoutes);
 apiV1Router.use('/attendance', attendanceRoutes);
+apiV1Router.use('/subjects', subjectRoutes);
 
 // Mount API v1
 app.use('/api/v1', apiV1Router);

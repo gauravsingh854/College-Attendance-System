@@ -4,12 +4,7 @@ import { Download, Filter, FileSpreadsheet } from 'lucide-react';
 export const AttendanceReportPage = () => {
   const [selectedSubject, setSelectedSubject] = useState('CS401');
 
-  const mockRecords = [
-    { roll: 'CS2023001', name: 'Alice Walker', department: 'CSE', date: '2026-09-22', method: 'Face Verified', status: 'present' },
-    { roll: 'CS2023002', name: 'Bob Vance', department: 'CSE', date: '2026-09-22', method: 'Dynamic QR', status: 'present' },
-    { roll: 'CS2023003', name: 'Charlie Day', department: 'CSE', date: '2026-09-22', method: 'Face Verified', status: 'late' },
-    { roll: 'CS2023004', name: 'Diana Prince', department: 'CSE', date: '2026-09-22', method: 'None', status: 'absent' },
-  ];
+  const mockRecords = [];
 
   return (
     <div>
@@ -62,20 +57,28 @@ export const AttendanceReportPage = () => {
               </tr>
             </thead>
             <tbody>
-              {mockRecords.map((rec) => (
-                <tr key={rec.roll} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                  <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontWeight: 600 }}>{rec.roll}</td>
-                  <td style={{ padding: '14px 16px' }}>{rec.name}</td>
-                  <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>{rec.department}</td>
-                  <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>{rec.date}</td>
-                  <td style={{ padding: '14px 16px' }}>{rec.method}</td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <span className={`badge ${rec.status === 'present' ? 'badge-present' : rec.status === 'late' ? 'badge-late' : 'badge-absent'}`}>
-                      {rec.status}
-                    </span>
+              {mockRecords.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    No attendance records found for this criteria.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                mockRecords.map((rec) => (
+                  <tr key={rec.roll} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                    <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontWeight: 600 }}>{rec.roll}</td>
+                    <td style={{ padding: '14px 16px' }}>{rec.name}</td>
+                    <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>{rec.department}</td>
+                    <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>{rec.date}</td>
+                    <td style={{ padding: '14px 16px' }}>{rec.method}</td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span className={`badge ${rec.status === 'present' ? 'badge-present' : rec.status === 'late' ? 'badge-late' : 'badge-absent'}`}>
+                        {rec.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -1,36 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { attendanceApi } from '../../api/attendanceApi.js';
-import { Award, Calendar, CheckCircle2 } from 'lucide-react';
+import { studentApi } from '../../api/studentApi.js';
+import { Calendar, Filter } from 'lucide-react';
 
 export const MyAttendancePage = () => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterSubject, setFilterSubject] = useState('');
+  const [subjects, setSubjects] = useState([]);
 
   useEffect(() => {
-    const fetchAttendance = async () => {
-      try {
-        const res = await attendanceApi.getMyHistory();
-        if (res?.data) {
-          setRecords(res.data);
-        }
-      } catch (err) {
-        console.warn('Could not load attendance history:', err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAttendance();
+    fetchHistory();
   }, []);
 
-  const fallbackRecords = [
-    { id: '1', course: 'CS401 - Database Systems', date: '2026-09-22', method: 'Face Verified', status: 'present' },
-    { id: '2', course: 'CS402 - Artificial Intelligence', date: '2026-09-21', method: 'Dynamic QR', status: 'present' },
-    { id: '3', course: 'CS403 - Distributed Systems', date: '2026-09-20', method: 'Dynamic QR', status: 'present' },
-    { id: '4', course: 'CS401 - Database Systems', date: '2026-09-19', method: 'Face Verified', status: 'late' },
-  ];
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      const res = await studentApi.getHistory();
+      if (res?.data?.data) {
+        setRecords(res.data.data);
+        
+        // Extract unique subjects for filter
+        const uniqueSubjects = [];
+        res.data.data.forEach(r => {
+          if (r.subject && !uniqueSubjects.find(s => s._id === r.subject._id)) {
+            uniqueSubjects.push(r.subject);
+          }
+        });
+        setSubjects(uniqueSubjects);
+      }
+    } catch (err) {
+      console.warn('Could not load attendance history:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const displayList = records.length > 0 ? records : fallbackRecords;
+  const filteredRecords = filterSubject 
+    ? records.filter(r => r.subject?._id === filterSubject)
+    : records;
 
   return (
     <div>
@@ -43,6 +50,21 @@ export const MyAttendancePage = () => {
             Immutable timestamped record of verified attendance entries
           </p>
         </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Filter size={18} color="var(--text-secondary)" />
+          <select 
+            className="form-input" 
+            style={{ minWidth: '200px' }}
+            value={filterSubject}
+            onChange={(e) => setFilterSubject(e.target.value)}
+          >
+            <option value="">All Subjects</option>
+            {subjects.map(s => (
+              <option key={s._id} value={s._id}>{s.name} ({s.code})</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="glass-panel" style={{ padding: '24px' }}>
@@ -50,31 +72,49 @@ export const MyAttendancePage = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
-                <th style={{ padding: '12px 16px' }}>Course / Subject</th>
-                <th style={{ padding: '12px 16px' }}>Date</th>
+                <th style={{ padding: '12px 16px' }}>Date & Time</th>
+                <th style={{ padding: '12px 16px' }}>Subject</th>
                 <th style={{ padding: '12px 16px' }}>Verification Method</th>
                 <th style={{ padding: '12px 16px' }}>Status</th>
               </tr>
             </thead>
             <tbody>
-              {displayList.map((item, idx) => (
-                <tr key={item.id || idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                  <td style={{ padding: '14px 16px', fontWeight: 600 }}>
-                    {item.subject?.name || item.course}
-                  </td>
-                  <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>
-                    {item.session?.sessionDate ? new Date(item.session.sessionDate).toLocaleDateString() : item.date}
-                  </td>
-                  <td style={{ padding: '14px 16px' }}>
-                    {item.verificationMethod || item.method}
-                  </td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <span className={`badge ${item.status === 'present' ? 'badge-present' : item.status === 'late' ? 'badge-late' : 'badge-absent'}`}>
-                      {item.status}
-                    </span>
-                  </td>
+              {loading ? (
+                <tr>
+                  <td colSpan="4" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>Loading history...</td>
                 </tr>
-              ))}
+              ) : filteredRecords.length > 0 ? (
+                filteredRecords.map((item) => (
+                  <tr key={item._id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                    <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>
+                      {new Date(item.recordedAt).toLocaleString()}
+                    </td>
+                    <td style={{ padding: '14px 16px', fontWeight: 600 }}>
+                      {item.subject?.name} <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>({item.subject?.code})</span>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{ 
+                        padding: '4px 8px', 
+                        borderRadius: '12px', 
+                        background: 'var(--bg-secondary)', 
+                        fontSize: '0.8rem',
+                        border: '1px solid var(--border-color)'
+                      }}>
+                        {item.verificationMethod.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span className={`badge badge-${item.status}`}>
+                        {item.status.toUpperCase()}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>No attendance records found.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

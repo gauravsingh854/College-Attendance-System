@@ -90,6 +90,12 @@ export const DashboardLayout = () => {
               <NavLink to="/student/attendance" style={navItemStyle}>
                 <ClipboardList size={18} /> My Attendance
               </NavLink>
+              <NavLink to="/student/corrections" style={navItemStyle}>
+                <FileSpreadsheet size={18} /> Corrections
+              </NavLink>
+              <NavLink to="/student/profile" style={navItemStyle}>
+                <Users size={18} /> Profile
+              </NavLink>
             </>
           )}
         </nav>
@@ -141,7 +147,13 @@ export const DashboardLayout = () => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="main-content">
+      <main className="main-content" style={{ position: 'relative' }}>
+        <div style={{ position: 'absolute', top: '24px', right: '24px', zIndex: 10 }}>
+          <NavLink to="/student/notifications" style={{ color: 'var(--text-secondary)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-secondary)', padding: '10px', borderRadius: '50%', border: '1px solid var(--border-color)' }}>
+            <div style={{ position: 'absolute', top: '6px', right: '8px', width: '8px', height: '8px', background: 'var(--accent-rose)', borderRadius: '50%' }}></div>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+          </NavLink>
+        </div>
         <Outlet />
       </main>
     </div>

@@ -20,7 +20,7 @@ export const AuthLayout = () => {
         padding: '24px',
       }}
     >
-      <div style={{ width: '100%', maxWidth: '440px' }}>
+      <div style={{ width: '100%', maxWidth: '540px' }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div
             style={{

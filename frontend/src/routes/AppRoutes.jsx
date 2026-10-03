@@ -9,6 +9,7 @@ import DashboardLayout from '../layouts/DashboardLayout.jsx';
 // Pages
 import LoginPage from '../pages/auth/LoginPage.jsx';
 import RegisterPage from '../pages/auth/RegisterPage.jsx';
+import TeacherRegisterPage from '../pages/auth/TeacherRegisterPage.jsx';
 import TeacherDashboard from '../pages/teacher/TeacherDashboard.jsx';
 import CreateSessionPage from '../pages/teacher/CreateSessionPage.jsx';
 import AttendanceReportPage from '../pages/teacher/AttendanceReportPage.jsx';
@@ -17,6 +18,9 @@ import StudentDashboard from '../pages/student/StudentDashboard.jsx';
 import ScanQrPage from '../pages/student/ScanQrPage.jsx';
 import FaceEnrollmentPage from '../pages/student/FaceEnrollmentPage.jsx';
 import MyAttendancePage from '../pages/student/MyAttendancePage.jsx';
+import CorrectionRequestsPage from '../pages/student/CorrectionRequestsPage.jsx';
+import NotificationsPage from '../pages/student/NotificationsPage.jsx';
+import StudentProfilePage from '../pages/student/StudentProfilePage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 
 // Route Guards
@@ -63,6 +67,7 @@ export const AppRoutes = () => {
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/register/teacher" element={<TeacherRegisterPage />} />
       </Route>
 
       {/* Teacher Protected Routes */}
@@ -77,7 +82,7 @@ export const AppRoutes = () => {
         <Route index element={<TeacherDashboard />} />
         <Route path="create-session" element={<CreateSessionPage />} />
         <Route path="reports" element={<AttendanceReportPage />} />
-        <Route path="students" element={<ManageStudentsPage />} />
+        <Route path="classes/:assignmentId/students" element={<ManageStudentsPage />} />
       </Route>
 
       {/* Student Protected Routes */}
@@ -93,6 +98,9 @@ export const AppRoutes = () => {
         <Route path="scan" element={<ScanQrPage />} />
         <Route path="face-enroll" element={<FaceEnrollmentPage />} />
         <Route path="attendance" element={<MyAttendancePage />} />
+        <Route path="corrections" element={<CorrectionRequestsPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="profile" element={<StudentProfilePage />} />
       </Route>
 
       {/* Fallback 404 */}

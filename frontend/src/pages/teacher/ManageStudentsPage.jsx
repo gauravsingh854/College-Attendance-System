@@ -1,30 +1,47 @@
-import React, { useState } from 'react';
-import { UserCheck, ShieldCheck, UserX, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { ArrowLeft, Search, UserCheck, UserX } from 'lucide-react';
+import { teacherApi } from '../../api/teacherApi.js';
 
 export const ManageStudentsPage = () => {
+  const { assignmentId } = useParams();
   const [searchTerm, setSearchTerm] = useState('');
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const students = [
-    { id: '1', name: 'Alice Walker', roll: 'CS2023001', dept: 'CSE', sem: 6, faceEnrolled: true, consent: true },
-    { id: '2', name: 'Bob Vance', roll: 'CS2023002', dept: 'CSE', sem: 6, faceEnrolled: false, consent: false },
-    { id: '3', name: 'Charlie Day', roll: 'CS2023003', dept: 'CSE', sem: 6, faceEnrolled: true, consent: true },
-    { id: '4', name: 'Diana Prince', roll: 'CS2023004', dept: 'CSE', sem: 6, faceEnrolled: true, consent: true },
-  ];
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const res = await teacherApi.getClassStudents(assignmentId);
+        if (res?.data) {
+          setStudents(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch students:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (assignmentId) fetchStudents();
+  }, [assignmentId]);
 
   const filtered = students.filter(
     (s) =>
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.roll.toLowerCase().includes(searchTerm.toLowerCase())
+      s.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.rollNumber?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div>
       <div style={{ marginBottom: '28px' }}>
+        <Link to="/teacher" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', textDecoration: 'none', marginBottom: '12px', fontSize: '0.9rem' }}>
+          <ArrowLeft size={16} /> Back to Dashboard
+        </Link>
         <h1 style={{ fontSize: '1.75rem', marginBottom: '8px' }}>
-          Student <span className="gradient-text">Directory</span>
+          Class <span className="gradient-text">Roster</span>
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-          View enrolled students, biometric verification status, and consent compliance
+          View students enrolled in this specific class assignment
         </p>
       </div>
 
@@ -37,6 +54,7 @@ export const ManageStudentsPage = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+          <Search size={18} color="var(--text-secondary)" style={{ position: 'absolute', right: '12px', top: '12px' }} />
         </div>
 
         <div style={{ overflowX: 'auto' }}>
@@ -45,39 +63,35 @@ export const ManageStudentsPage = () => {
               <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
                 <th style={{ padding: '12px 16px' }}>Roll Number</th>
                 <th style={{ padding: '12px 16px' }}>Full Name</th>
-                <th style={{ padding: '12px 16px' }}>Department</th>
-                <th style={{ padding: '12px 16px' }}>Semester</th>
-                <th style={{ padding: '12px 16px' }}>Biometric Enrollment</th>
-                <th style={{ padding: '12px 16px' }}>Privacy Consent</th>
+                <th style={{ padding: '12px 16px' }}>Branch</th>
+                <th style={{ padding: '12px 16px' }}>Section</th>
+                <th style={{ padding: '12px 16px' }}>Attendance</th>
+                <th style={{ padding: '12px 16px' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((s) => (
-                <tr key={s.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                  <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontWeight: 600 }}>{s.roll}</td>
-                  <td style={{ padding: '14px 16px', fontWeight: 600 }}>{s.name}</td>
-                  <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>{s.dept}</td>
-                  <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>Sem {s.sem}</td>
-                  <td style={{ padding: '14px 16px' }}>
-                    {s.faceEnrolled ? (
-                      <span className="badge badge-present">Enrolled</span>
-                    ) : (
-                      <span className="badge badge-late">Pending</span>
-                    )}
-                  </td>
-                  <td style={{ padding: '14px 16px' }}>
-                    {s.consent ? (
-                      <span style={{ color: 'var(--accent-emerald)', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}>
-                        <ShieldCheck size={16} /> Signed
-                      </span>
-                    ) : (
-                      <span style={{ color: 'var(--accent-rose)', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}>
-                        <UserX size={16} /> Missing
-                      </span>
-                    )}
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    {searchTerm ? 'No students found matching your search.' : 'No students are enrolled in this class yet.'}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filtered.map((s) => (
+                  <tr key={s._id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                    <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontWeight: 600 }}>{s.rollNumber}</td>
+                    <td style={{ padding: '14px 16px', fontWeight: 600 }}>{s.fullName || 'Unknown'}</td>
+                    <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>{s.branch}</td>
+                    <td style={{ padding: '14px 16px', color: 'var(--text-secondary)' }}>{s.section}</td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span className="badge badge-present">{s.attendancePercentage}%</span>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>View Profile</button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -14,10 +14,15 @@ const subjectSchema = new mongoose.Schema(
       trim: true,
       uppercase: true,
     },
-    department: {
+    branch: {
       type: String,
-      required: [true, 'Department is required'],
+      required: [true, 'Branch is required'],
       trim: true,
+    },
+    academicYear: {
+      type: String,
+      required: [true, 'Academic Year is required'],
+      enum: ['1st Year', '2nd Year', '3rd Year', '4th Year'],
     },
     semester: {
       type: Number,
@@ -28,7 +33,7 @@ const subjectSchema = new mongoose.Schema(
     teacher: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: false,
     },
   },
   {

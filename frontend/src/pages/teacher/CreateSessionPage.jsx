@@ -1,27 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { sessionApi } from '../../api/sessionApi.js';
+import { teacherApi } from '../../api/teacherApi.js';
 import { PlusCircle, QrCode } from 'lucide-react';
 
 export const CreateSessionPage = () => {
   const [formData, setFormData] = useState({
-    subjectId: '65f123456789abcdef123456', // Mock / starter Subject ID
+    assignmentId: '',
     startTime: new Date().toISOString().slice(0, 16),
     endTime: new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16),
     geofenceEnabled: false,
   });
+  
+  const [assignedClasses, setAssignedClasses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const res = await teacherApi.getAssignedClasses();
+        const classesData = res.data || [];
+        setAssignedClasses(classesData);
+        if (classesData.length > 0) {
+          setFormData(prev => ({ ...prev, assignmentId: classesData[0]._id }));
+        }
+      } catch (err) {
+        console.error('Could not fetch assigned classes', err);
+      }
+    };
+    fetchClasses();
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.assignmentId) {
+      setMessage('Notice: You must select an assigned class first.');
+      return;
+    }
+
     setLoading(true);
     setMessage('');
 
     try {
       await sessionApi.createSession({
-        subjectId: formData.subjectId,
+        assignmentId: formData.assignmentId,
         startTime: new Date(formData.startTime),
         endTime: new Date(formData.endTime),
         geofence: { enabled: formData.geofenceEnabled },
@@ -64,15 +88,19 @@ export const CreateSessionPage = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Subject / Course</label>
+            <label className="form-label">Select Assigned Class</label>
             <select
               className="form-input"
-              value={formData.subjectId}
-              onChange={(e) => setFormData({ ...formData, subjectId: e.target.value })}
+              value={formData.assignmentId}
+              onChange={(e) => setFormData({ ...formData, assignmentId: e.target.value })}
+              required
             >
-              <option value="65f123456789abcdef123456">CS401 - Advanced Database Management Systems</option>
-              <option value="65f123456789abcdef123457">CS402 - Artificial Intelligence & Computer Vision</option>
-              <option value="65f123456789abcdef123458">CS403 - Distributed Systems & Cloud Computing</option>
+              {assignedClasses.length === 0 && <option value="">No classes assigned yet</option>}
+              {assignedClasses.map((cls) => (
+                <option key={cls._id} value={cls._id}>
+                  {cls.subject?.name} ({cls.branch} - Sec {cls.section}) - {cls.academicYear} Sem {cls.semester}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -124,7 +152,7 @@ export const CreateSessionPage = () => {
             type="submit"
             className="btn btn-primary"
             style={{ width: '100%' }}
-            disabled={loading}
+            disabled={loading || assignedClasses.length === 0}
           >
             <QrCode size={18} />
             {loading ? 'Initializing Session...' : 'Generate Dynamic QR Session'}
