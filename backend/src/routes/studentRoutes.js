@@ -8,7 +8,8 @@ import {
   createCorrectionRequest,
   getCorrectionRequests,
   getNotifications,
-  markNotificationRead
+  markNotificationRead,
+  getTodaySchedule
 } from '../controllers/studentController.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { authorize } from '../middleware/roleMiddleware.js';
@@ -45,5 +46,7 @@ router.get('/correction', authorize(ROLES.STUDENT), getCorrectionRequests);
 
 router.get('/notifications', authorize(ROLES.STUDENT), getNotifications);
 router.put('/notifications/:id/read', authorize(ROLES.STUDENT), markNotificationRead);
+
+router.get('/schedule/today', authorize(ROLES.STUDENT), getTodaySchedule);
 
 export default router;

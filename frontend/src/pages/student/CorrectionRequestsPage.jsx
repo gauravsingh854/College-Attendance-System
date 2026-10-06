@@ -22,7 +22,7 @@ export const CorrectionRequestsPage = () => {
     try {
       setLoading(true);
       const res = await studentApi.getCorrections();
-      setRequests(res.data.data);
+      setRequests(res.data || []);
     } catch (err) {
       setError('Failed to load correction requests');
     } finally {

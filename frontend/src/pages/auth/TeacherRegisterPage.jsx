@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { authApi } from '../../api/authApi.js';
 import { subjectApi } from '../../api/subjectApi.js';
-import { UserPlus, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
+import { UserPlus, Eye, EyeOff } from 'lucide-react';
+import { getSemestersForBranch } from '../../utils/config.js';
 
 export const TeacherRegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -15,56 +16,55 @@ export const TeacherRegisterPage = () => {
     facultyId: '',
     branch: 'BCA',
     designation: 'Assistant Professor',
-    teachingAssignments: [],
     phoneNumber: '',
+    section: 'A',
+    semester: '1',
+    subject: '',
   });
   
   const [subjects, setSubjects] = useState([]);
-  const [currentAssignment, setCurrentAssignment] = useState({
-    branch: 'BCA',
-    section: 'A',
-    academicYear: '1st Year',
-    semester: '1',
-    subject: ''
-  });
-
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+  const [semesterResetMessage, setSemesterResetMessage] = useState('');
+  
+  const maxSemesters = getSemestersForBranch(formData.branch);
+  
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
+  useEffect(() => {
+    if (parseInt(formData.semester) > maxSemesters) {
+      setFormData(prev => ({ ...prev, semester: '1' }));
+      setSemesterResetMessage('Semester reset');
+      setTimeout(() => setSemesterResetMessage(''), 3000);
+    }
+  }, [formData.branch, maxSemesters]);
+
   useEffect(() => {
     const fetchSubjects = async () => {
+      setSubjectsLoading(true);
       try {
-        const response = await subjectApi.getAll();
+        const response = await subjectApi.getAll({ branch: formData.branch, semester: formData.semester });
         const subjectsData = response.data || [];
         setSubjects(subjectsData);
         if (subjectsData.length > 0) {
-          setCurrentAssignment(prev => ({ ...prev, subject: subjectsData[0]._id }));
+          setFormData(prev => ({ ...prev, subject: subjectsData[0]._id }));
+        } else {
+          setFormData(prev => ({ ...prev, subject: '' }));
         }
       } catch (err) {
         console.error('Failed to fetch subjects', err);
+      } finally {
+        setSubjectsLoading(false);
       }
     };
-    fetchSubjects();
-  }, []);
+    if (formData.branch && formData.semester && parseInt(formData.semester) <= maxSemesters) {
+      fetchSubjects();
+    }
+  }, [formData.branch, formData.semester, maxSemesters]);
   
   const { login } = useAuth();
   const navigate = useNavigate();
-
-  const handleAddAssignment = () => {
-    if (!currentAssignment.subject) return;
-    setFormData(prev => ({
-      ...prev,
-      teachingAssignments: [...prev.teachingAssignments, { ...currentAssignment, semester: Number(currentAssignment.semester) }]
-    }));
-  };
-
-  const handleRemoveAssignment = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      teachingAssignments: prev.teachingAssignments.filter((_, i) => i !== index)
-    }));
-  };
 
   const validateForm = () => {
     if (formData.name.trim().length < 3 || !/^[a-zA-Z\s]+$/.test(formData.name)) {
@@ -79,8 +79,8 @@ export const TeacherRegisterPage = () => {
     if (!formData.facultyId || !/^[A-Za-z0-9-]+$/.test(formData.facultyId)) {
       return "Faculty ID can only contain letters, numbers, and hyphens.";
     }
-    if (formData.teachingAssignments.length === 0) {
-      return "Please add at least one teaching assignment.";
+    if (!formData.subject) {
+      return "Please select a subject for the teaching assignment.";
     }
     if (formData.phoneNumber && !/^[6-9]\d{9}$/.test(formData.phoneNumber)) {
       return "Please enter a valid 10-digit Indian phone number.";
@@ -104,13 +104,29 @@ export const TeacherRegisterPage = () => {
       const payload = { ...formData };
       payload.facultyId = payload.facultyId.toUpperCase();
       delete payload.confirmPassword;
+      
+      payload.teachingAssignments = [{
+        branch: payload.branch,
+        section: payload.section,
+        semester: Number(payload.semester),
+        subject: payload.subject
+      }];
+      
+      delete payload.section;
+      delete payload.semester;
+      delete payload.subject;
 
       const response = await authApi.register(payload);
       login(response.data.user, response.data.token);
       
       navigate('/teacher');
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Registration failed. Please try again.');
+      const data = err.response?.data;
+      if (data?.errors && data.errors.length > 0) {
+        setError(data.errors.join(', '));
+      } else {
+        setError(data?.message || err.message || 'Registration failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -224,44 +240,13 @@ export const TeacherRegisterPage = () => {
 
         <div className="form-group">
           <label className="form-label" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '8px' }}>
-            Teaching Assignments *
+            Class Assignment *
           </label>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-            {formData.teachingAssignments.map((assignment, index) => {
-              const subjectObj = subjects.find(s => s._id === assignment.subject);
-              return (
-                <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.6)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{subjectObj ? `${subjectObj.name} (${subjectObj.code})` : 'Unknown Subject'}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      {assignment.branch} • Sec {assignment.section} • {assignment.academicYear} • Sem {assignment.semester}
-                    </div>
-                  </div>
-                  <button type="button" onClick={() => handleRemoveAssignment(index)} style={{ background: 'none', border: 'none', color: 'var(--accent-rose)', cursor: 'pointer' }}>
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
           <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-color)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
               <div>
-                <label className="form-label" style={{ fontSize: '0.8rem' }}>Branch</label>
-                <select className="form-input" style={{ padding: '8px' }} value={currentAssignment.branch} onChange={(e) => setCurrentAssignment({ ...currentAssignment, branch: e.target.value })}>
-                  <option value="BCA">BCA</option>
-                  <option value="BTech CSE">BTech CSE</option>
-                  <option value="BTech IT">BTech IT</option>
-                  <option value="BBA">BBA</option>
-                  <option value="MCA">MCA</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
                 <label className="form-label" style={{ fontSize: '0.8rem' }}>Section</label>
-                <select className="form-input" style={{ padding: '8px' }} value={currentAssignment.section} onChange={(e) => setCurrentAssignment({ ...currentAssignment, section: e.target.value })}>
+                <select className="form-input" style={{ padding: '8px' }} value={formData.section} onChange={(e) => setFormData({ ...formData, section: e.target.value })}>
                   <option value="A">A</option>
                   <option value="B">B</option>
                   <option value="C">C</option>
@@ -269,32 +254,39 @@ export const TeacherRegisterPage = () => {
                 </select>
               </div>
               <div>
-                <label className="form-label" style={{ fontSize: '0.8rem' }}>Year</label>
-                <select className="form-input" style={{ padding: '8px' }} value={currentAssignment.academicYear} onChange={(e) => setCurrentAssignment({ ...currentAssignment, academicYear: e.target.value })}>
-                  <option value="1st Year">1st Year</option>
-                  <option value="2nd Year">2nd Year</option>
-                  <option value="3rd Year">3rd Year</option>
-                  <option value="4th Year">4th Year</option>
-                </select>
-              </div>
-              <div>
-                <label className="form-label" style={{ fontSize: '0.8rem' }}>Semester</label>
-                <select className="form-input" style={{ padding: '8px' }} value={currentAssignment.semester} onChange={(e) => setCurrentAssignment({ ...currentAssignment, semester: e.target.value })}>
-                  {[1,2,3,4,5,6,7,8].map(s => <option key={s} value={s}>{s}</option>)}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Semester</label>
+                  {semesterResetMessage && <span style={{ fontSize: '0.7rem', color: 'var(--accent-amber)' }}>{semesterResetMessage}</span>}
+                </div>
+                <select className="form-input" style={{ padding: '8px' }} value={formData.semester} onChange={(e) => setFormData({ ...formData, semester: e.target.value })}>
+                  {Array.from({ length: maxSemesters }, (_, i) => i + 1).map(num => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
                 </select>
               </div>
             </div>
             
             <div style={{ marginBottom: '12px' }}>
               <label className="form-label" style={{ fontSize: '0.8rem' }}>Subject</label>
-              <select className="form-input" style={{ padding: '8px' }} value={currentAssignment.subject} onChange={(e) => setCurrentAssignment({ ...currentAssignment, subject: e.target.value })}>
-                {subjects.map(s => <option key={s._id} value={s._id}>{s.name} ({s.code})</option>)}
-              </select>
+              {subjectsLoading ? (
+                <div style={{ padding: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading subjects...</div>
+              ) : subjects.length > 0 ? (
+                <select className="form-input" style={{ padding: '8px' }} value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })}>
+                  <optgroup label="Theory">
+                    {subjects.filter(s => s.type === 'theory').map(s => (
+                      <option key={s._id} value={s._id}>{s.name} ({s.code})</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Practical">
+                    {subjects.filter(s => s.type === 'practical').map(s => (
+                      <option key={s._id} value={s._id}>{s.name} ({s.code})</option>
+                    ))}
+                  </optgroup>
+                </select>
+              ) : (
+                <div style={{ padding: '8px', color: 'var(--accent-amber)', fontSize: '0.85rem' }}>No subjects configured for this branch/semester</div>
+              )}
             </div>
-
-            <button type="button" onClick={handleAddAssignment} className="btn btn-secondary" style={{ width: '100%', fontSize: '0.85rem', padding: '8px' }}>
-              <Plus size={16} /> Add Class Assignment
-            </button>
           </div>
         </div>
 

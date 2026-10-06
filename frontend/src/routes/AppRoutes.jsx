@@ -82,6 +82,7 @@ export const AppRoutes = () => {
         <Route index element={<TeacherDashboard />} />
         <Route path="create-session" element={<CreateSessionPage />} />
         <Route path="reports" element={<AttendanceReportPage />} />
+        <Route path="students" element={<ManageStudentsPage />} />
         <Route path="classes/:assignmentId/students" element={<ManageStudentsPage />} />
       </Route>
 

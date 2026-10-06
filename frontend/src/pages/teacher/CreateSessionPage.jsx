@@ -45,7 +45,7 @@ export const CreateSessionPage = () => {
 
     try {
       await sessionApi.createSession({
-        assignmentId: formData.assignmentId,
+        teachingAssignmentId: formData.assignmentId,
         startTime: new Date(formData.startTime),
         endTime: new Date(formData.endTime),
         geofence: { enabled: formData.geofenceEnabled },

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { studentApi } from '../../api/studentApi.js';
-import { QrCode, ScanFace, ClipboardCheck, Award, AlertTriangle, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { QrCode, ScanFace, ClipboardCheck, Award, AlertTriangle, CheckCircle2, XCircle, Clock, Info } from 'lucide-react';
 
 export const StudentDashboard = () => {
   const { user } = useAuth();
@@ -18,8 +18,11 @@ export const StudentDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const response = await studentApi.getDashboardData();
-      setData(response.data.data);
+      const [dashRes, scheduleRes] = await Promise.all([
+        studentApi.getDashboardData(),
+        studentApi.getTodaySchedule()
+      ]);
+      setData({ ...dashRes.data, schedule: scheduleRes.data });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load dashboard data');
     } finally {
@@ -35,7 +38,10 @@ export const StudentDashboard = () => {
     return <div style={{ color: 'var(--accent-rose)', padding: '20px' }}>{error}</div>;
   }
 
-  const { todayClasses, subjectAttendance, hasLowAttendance, examEligible } = data || {};
+  const { subjectAttendance, hasLowAttendance, overallStatus, schedule } = data || {};
+
+  const now = new Date();
+  const todayFormatted = `${String(now.getDate()).padStart(2, '0')} ${now.toLocaleString('en-US', { month: 'short' })}, ${now.toLocaleString('en-US', { weekday: 'short' })}`;
 
   return (
     <div>
@@ -81,47 +87,69 @@ export const StudentDashboard = () => {
 
       {/* Exam Eligibility Card */}
       <div className="glass-panel" style={{ padding: '24px', marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '24px' }}>
-        <div style={{ padding: '16px', borderRadius: '50%', background: examEligible ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)' }}>
-          {examEligible ? <Award size={32} color="var(--accent-emerald)" /> : <XCircle size={32} color="var(--accent-rose)" />}
+        <div style={{ 
+          padding: '16px', 
+          borderRadius: '50%', 
+          background: overallStatus === 'Eligible' ? 'rgba(16, 185, 129, 0.15)' : 
+                      overallStatus === 'Not Started' ? 'rgba(59, 130, 246, 0.15)' : 
+                      'rgba(244, 63, 94, 0.15)' 
+        }}>
+          {overallStatus === 'Eligible' && <Award size={32} color="var(--accent-emerald)" />}
+          {overallStatus === 'Not Started' && <Info size={32} color="var(--accent-primary)" />}
+          {(overallStatus === 'At Risk' || overallStatus === 'Not Eligible') && <XCircle size={32} color="var(--accent-rose)" />}
         </div>
         <div>
           <h3 style={{ fontSize: '1.25rem', marginBottom: '4px' }}>Exam Eligibility Status</h3>
-          <div style={{ fontSize: '1.1rem', fontWeight: 600, color: examEligible ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
-            {examEligible ? 'Eligible for Exams' : 'At Risk / Not Eligible'}
+          <div style={{ 
+            fontSize: '1.1rem', 
+            fontWeight: 600, 
+            color: overallStatus === 'Eligible' ? 'var(--accent-emerald)' : 
+                   overallStatus === 'Not Started' ? 'var(--accent-primary)' : 
+                   'var(--accent-rose)' 
+          }}>
+            {overallStatus === 'Not Started' ? 'Not Started' : overallStatus === 'Eligible' ? 'Eligible for Exams' : 'At Risk / Not Eligible'}
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
-            {examEligible ? 'You are meeting the 75% requirement across all subjects.' : 'You have subjects below the 75% attendance requirement.'}
+            {overallStatus === 'Not Started' && 'Your attendance tracking will begin once classes start.'}
+            {overallStatus === 'Eligible' && 'You are meeting the 75% requirement across all subjects.'}
+            {(overallStatus === 'At Risk' || overallStatus === 'Not Eligible') && 'You have subjects below the 75% attendance requirement.'}
           </p>
         </div>
       </div>
 
       {/* Today's Schedule */}
-      <h2 style={{ fontSize: '1.25rem', marginBottom: '16px' }}>Today's Schedule</h2>
+      <h2 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        Today's Schedule
+        <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+          ({todayFormatted})
+        </span>
+      </h2>
       <div className="card-grid" style={{ marginBottom: '32px' }}>
-        {todayClasses && todayClasses.length > 0 ? (
-          todayClasses.map(({ session, isAttended }) => (
-            <div key={session._id} className="glass-panel" style={{ padding: '20px' }}>
+        {schedule && schedule.length > 0 ? (
+          schedule.map((entry) => (
+            <div key={entry._id} className="glass-panel" style={{ padding: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                 <div>
-                  <h3 style={{ fontSize: '1.1rem', marginBottom: '4px' }}>{session.subject.name}</h3>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{session.subject.code} • {session.teacher.name}</div>
+                  <h3 style={{ fontSize: '1.1rem', marginBottom: '4px' }}>{entry.subject?.name}</h3>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{entry.subject?.code} • Room: {entry.room}</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{entry.teacher?.user?.name || 'Teacher'}</div>
                 </div>
-                {isAttended ? (
+                {entry.activeSessionId ? (
                   <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: 'var(--accent-emerald)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <CheckCircle2 size={14} /> Attended
+                    <CheckCircle2 size={14} /> Live Session Active
                   </span>
                 ) : (
                   <span style={{ background: 'rgba(244, 163, 63, 0.15)', color: '#f59e0b', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Clock size={14} /> Pending
+                    <Clock size={14} /> Pending / Not Started
                   </span>
                 )}
               </div>
               
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(session.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {entry.startTime} - {entry.endTime}
               </div>
 
-              {!isAttended && (
+              {entry.activeSessionId && (
                 <Link to={`/student/scan`} className="btn btn-primary" style={{ width: '100%', padding: '8px' }}>
                   <QrCode size={16} /> Mark Attendance
                 </Link>
@@ -132,7 +160,7 @@ export const StudentDashboard = () => {
           <div className="glass-panel" style={{ padding: '32px', textAlign: 'center', gridColumn: '1 / -1' }}>
             <ClipboardCheck size={48} color="var(--text-muted)" style={{ margin: '0 auto 16px', opacity: 0.5 }} />
             <h3 style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>No more classes today</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>You have no active sessions scheduled for today.</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>You have no scheduled classes for today.</p>
           </div>
         )}
       </div>
@@ -147,12 +175,14 @@ export const StudentDashboard = () => {
       
       <div className="card-grid">
         {subjectAttendance && subjectAttendance.length > 0 ? (
-          subjectAttendance.map(({ subject, attended, total, percentage }) => {
-            const isGood = percentage >= 75;
-            const isWarning = percentage >= 65 && percentage < 75;
-            const isDanger = percentage < 65;
+          subjectAttendance.map(({ subject, attended, total, percentage, status }) => {
+            const isNotStarted = status === 'Not Started';
+            const isGood = status === 'Eligible';
+            const isWarning = status === 'At Risk';
+            const isDanger = status === 'Not Eligible';
             
-            let color = 'var(--accent-emerald)';
+            let color = 'var(--text-muted)';
+            if (isGood) color = 'var(--accent-emerald)';
             if (isWarning) color = '#f59e0b';
             if (isDanger) color = 'var(--accent-rose)';
 
@@ -163,19 +193,21 @@ export const StudentDashboard = () => {
                     <h3 style={{ fontSize: '1.1rem', marginBottom: '4px' }}>{subject.name}</h3>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{subject.code}</div>
                   </div>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 800, color }}>{percentage}%</div>
+                  <div style={{ fontSize: isNotStarted ? '1rem' : '1.4rem', fontWeight: isNotStarted ? 500 : 800, color }}>
+                    {isNotStarted ? 'No classes yet' : `${percentage}%`}
+                  </div>
                 </div>
 
                 {/* Progress Bar */}
                 <div style={{ height: '8px', background: 'var(--bg-secondary)', borderRadius: '4px', overflow: 'hidden', marginBottom: '12px' }}>
-                  <div style={{ height: '100%', width: `${percentage}%`, background: color, transition: 'width 0.5s ease' }} />
+                  <div style={{ height: '100%', width: isNotStarted ? '0%' : `${percentage}%`, background: color, transition: 'width 0.5s ease' }} />
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Classes: <strong style={{ color: 'var(--text-primary)' }}>{attended} / {total}</strong></span>
-                  {!isGood && (
-                    <span style={{ color: 'var(--accent-rose)', fontWeight: 600, background: 'rgba(244, 63, 94, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
-                      At Risk
+                  {!isGood && !isNotStarted && (
+                    <span style={{ color: color, fontWeight: 600, background: isWarning ? 'rgba(245, 158, 11, 0.1)' : 'rgba(244, 63, 94, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                      {status}
                     </span>
                   )}
                 </div>

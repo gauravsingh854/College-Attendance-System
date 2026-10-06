@@ -30,6 +30,20 @@ const subjectSchema = new mongoose.Schema(
       min: 1,
       max: 12,
     },
+    category: {
+      type: String,
+      enum: ['CC', 'OE', 'PE', 'P', 'LP', 'SEC'],
+      required: false,
+    },
+    type: {
+      type: String,
+      enum: ['theory', 'practical'],
+      required: false,
+    },
+    credits: {
+      type: Number,
+      required: false,
+    },
     teacher: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

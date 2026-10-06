@@ -13,7 +13,7 @@ export const NotificationsPage = () => {
   const fetchNotifications = async () => {
     try {
       const res = await studentApi.getNotifications();
-      setNotifications(res.data.data);
+      setNotifications(res.data || []);
     } catch (err) {
       console.warn('Could not load notifications');
     } finally {

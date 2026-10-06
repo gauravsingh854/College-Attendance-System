@@ -10,4 +10,6 @@ export const studentApi = {
   getCorrections: () => axiosClient.get('/students/correction'),
   getNotifications: () => axiosClient.get('/students/notifications'),
   readNotification: (id) => axiosClient.put(`/students/notifications/${id}/read`),
+  changePassword: (data) => axiosClient.put('/auth/change-password', data),
+  getTodaySchedule: () => axiosClient.get('/students/schedule/today'),
 };

@@ -17,11 +17,11 @@ export const MyAttendancePage = () => {
       setLoading(true);
       const res = await studentApi.getHistory();
       if (res?.data?.data) {
-        setRecords(res.data.data);
+        setRecords(res.data || []);
         
         // Extract unique subjects for filter
         const uniqueSubjects = [];
-        res.data.data.forEach(r => {
+        (res.data || []).forEach(r => {
           if (r.subject && !uniqueSubjects.find(s => s._id === r.subject._id)) {
             uniqueSubjects.push(r.subject);
           }

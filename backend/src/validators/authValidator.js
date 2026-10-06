@@ -24,9 +24,6 @@ export const validateRegister = (data = {}) => {
     if (!data.section || !['A', 'B', 'C', 'D'].includes(data.section)) {
       errors.push('Section must be A, B, C, or D');
     }
-    if (!data.academicYear || !['1st Year', '2nd Year', '3rd Year', '4th Year'].includes(data.academicYear)) {
-      errors.push('Valid Academic Year is required');
-    }
     if (!data.semester || isNaN(Number(data.semester)) || Number(data.semester) < 1 || Number(data.semester) > 12) {
       errors.push('Valid Semester (1-12) is required');
     }
@@ -47,7 +44,7 @@ export const validateRegister = (data = {}) => {
       errors.push('Teaching Assignments must be an array');
     } else {
       data.teachingAssignments.forEach((assignment, index) => {
-        if (!assignment.branch || !assignment.section || !assignment.academicYear || !assignment.semester || !assignment.subject) {
+        if (!assignment.branch || !assignment.section || !assignment.semester || !assignment.subject) {
           errors.push(`Teaching Assignment at index ${index} is missing required fields`);
         }
       });

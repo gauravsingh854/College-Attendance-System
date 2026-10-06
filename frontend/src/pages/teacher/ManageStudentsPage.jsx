@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Search, UserCheck, UserX } from 'lucide-react';
+import { ArrowLeft, Search, UserCheck, UserX, X } from 'lucide-react';
 import { teacherApi } from '../../api/teacherApi.js';
 
 export const ManageStudentsPage = () => {
@@ -8,11 +8,14 @@ export const ManageStudentsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const res = await teacherApi.getClassStudents(assignmentId);
+        const res = assignmentId
+          ? await teacherApi.getClassStudents(assignmentId)
+          : await teacherApi.getAllStudents();
         if (res?.data) {
           setStudents(res.data);
         }
@@ -22,7 +25,7 @@ export const ManageStudentsPage = () => {
         setLoading(false);
       }
     };
-    if (assignmentId) fetchStudents();
+    fetchStudents();
   }, [assignmentId]);
 
   const filtered = students.filter(
@@ -87,7 +90,13 @@ export const ManageStudentsPage = () => {
                       <span className="badge badge-present">{s.attendancePercentage}%</span>
                     </td>
                     <td style={{ padding: '14px 16px' }}>
-                      <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>View Profile</button>
+                      <button 
+                        onClick={() => setSelectedStudent(s)}
+                        className="btn btn-secondary" 
+                        style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                      >
+                        View Profile
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -96,6 +105,65 @@ export const ManageStudentsPage = () => {
           </table>
         </div>
       </div>
+
+      {/* View Profile Modal */}
+      {selectedStudent && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div className="glass-panel" style={{ 
+            width: '100%', maxWidth: '400px', padding: '24px', position: 'relative'
+          }}>
+            <button 
+              onClick={() => setSelectedStudent(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+            >
+              <X size={20} />
+            </button>
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>Student Profile</h2>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Full Name</div>
+                <div style={{ fontWeight: 600, fontSize: '1.05rem' }}>{selectedStudent.fullName}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Roll Number</div>
+                <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: 'var(--accent-blue)' }}>{selectedStudent.rollNumber}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Email Address</div>
+                <div>{selectedStudent.email}</div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Branch & Section</div>
+                  <div>{selectedStudent.branch} - Sec {selectedStudent.section}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Academic Year</div>
+                  <div>{selectedStudent.academicYear} / Sem {selectedStudent.semester}</div>
+                </div>
+              </div>
+              <div style={{ marginTop: '8px', padding: '12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 500 }}>Overall Attendance</span>
+                <span className="badge badge-present" style={{ fontSize: '1rem', padding: '4px 10px' }}>{selectedStudent.attendancePercentage}%</span>
+              </div>
+            </div>
+            
+            <button 
+              className="btn btn-primary" 
+              onClick={() => setSelectedStudent(null)}
+              style={{ width: '100%', marginTop: '24px' }}
+            >
+              Close Profile
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

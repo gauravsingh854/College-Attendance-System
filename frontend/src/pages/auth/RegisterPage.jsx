@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { authApi } from '../../api/authApi.js';
 import { subjectApi } from '../../api/subjectApi.js';
 import { UserPlus, Eye, EyeOff } from 'lucide-react';
+import { getSemestersForBranch } from '../../utils/config.js';
 
 export const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -15,9 +16,7 @@ export const RegisterPage = () => {
     rollNumber: '',
     branch: 'BCA',
     section: 'A',
-    academicYear: '1st Year',
     semester: '1',
-    enrolledSubjects: [],
   });
   const [subjects, setSubjects] = useState([]);
   const [consentGiven, setConsentGiven] = useState(false);
@@ -27,18 +26,35 @@ export const RegisterPage = () => {
   
   const { login } = useAuth();
   const navigate = useNavigate();
+  const maxSemesters = getSemestersForBranch(formData.branch);
+  const [semesterResetMessage, setSemesterResetMessage] = useState('');
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+
+  useEffect(() => {
+    if (parseInt(formData.semester) > maxSemesters) {
+      setFormData(prev => ({ ...prev, semester: '1' }));
+      setSemesterResetMessage('Semester reset — please reselect');
+      setTimeout(() => setSemesterResetMessage(''), 3000);
+    }
+  }, [formData.branch, maxSemesters]);
 
   useEffect(() => {
     const fetchSubjects = async () => {
+      if (formData.role !== 'student') return;
+      setSubjectsLoading(true);
       try {
-        const response = await subjectApi.getAll();
+        const response = await subjectApi.getAll({ branch: formData.branch, semester: formData.semester });
         setSubjects(response.data || []);
       } catch (err) {
         console.error('Failed to fetch subjects', err);
+      } finally {
+        setSubjectsLoading(false);
       }
     };
-    fetchSubjects();
-  }, []);
+    if (formData.branch && formData.semester && parseInt(formData.semester) <= maxSemesters) {
+      fetchSubjects();
+    }
+  }, [formData.branch, formData.semester, formData.role, maxSemesters]);
 
   const validateForm = () => {
     if (formData.name.trim().length < 3 || !/^[a-zA-Z\s]+$/.test(formData.name)) {
@@ -79,9 +95,7 @@ export const RegisterPage = () => {
         delete payload.rollNumber;
         delete payload.branch;
         delete payload.section;
-        delete payload.academicYear;
         delete payload.semester;
-        delete payload.enrolledSubjects;
       } else {
         payload.rollNumber = payload.rollNumber.toUpperCase();
       }
@@ -96,7 +110,12 @@ export const RegisterPage = () => {
         navigate('/student/face-enroll');
       }
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Registration failed. Please try again.');
+      const data = err.response?.data;
+      if (data?.errors && data.errors.length > 0) {
+        setError(data.errors.join(', '));
+      } else {
+        setError(data?.message || err.message || 'Registration failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -196,55 +215,57 @@ export const RegisterPage = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">Academic Year</label>
-                <select
-                  className="form-input"
-                  value={formData.academicYear}
-                  onChange={(e) => setFormData({ ...formData, academicYear: e.target.value })}
-                >
-                  <option value="1st Year">1st Year</option>
-                  <option value="2nd Year">2nd Year</option>
-                  <option value="3rd Year">3rd Year</option>
-                  <option value="4th Year">4th Year</option>
-                </select>
-              </div>
-
-              <div className="form-group" style={{ flex: 1 }}>
+            <div className="form-group">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label className="form-label">Semester</label>
-                <select
-                  className="form-input"
-                  value={formData.semester}
-                  onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
-                >
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
-                    <option key={num} value={num}>{num}</option>
-                  ))}
-                </select>
+                {semesterResetMessage && <span style={{ fontSize: '0.75rem', color: 'var(--accent-amber)' }}>{semesterResetMessage}</span>}
               </div>
+              <select
+                className="form-input"
+                value={formData.semester}
+                onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
+              >
+                {Array.from({ length: maxSemesters }, (_, i) => i + 1).map(num => (
+                  <option key={num} value={num}>{num}</option>
+                ))}
+              </select>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Enrolled Subjects</label>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.8)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', maxHeight: '150px', overflowY: 'auto' }}>
-                {subjects.length > 0 ? subjects.map(sub => (
-                  <label key={sub._id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', width: '48%' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={formData.enrolledSubjects.includes(sub._id)}
-                      onChange={(e) => {
-                        const current = formData.enrolledSubjects;
-                        if (e.target.checked) {
-                          setFormData({ ...formData, enrolledSubjects: [...current, sub._id] });
-                        } else {
-                          setFormData({ ...formData, enrolledSubjects: current.filter(id => id !== sub._id) });
-                        }
-                      }}
-                    />
-                    {sub.name} ({sub.code})
-                  </label>
-                )) : <span style={{fontSize: '0.85rem', color: 'var(--text-muted)'}}>Loading subjects...</span>}
+              <label className="form-label">Your subjects for this semester</label>
+              <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', minHeight: '60px' }}>
+                {subjectsLoading ? (
+                  <span style={{fontSize: '0.85rem', color: 'var(--text-muted)'}}>Loading subjects...</span>
+                ) : subjects.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {subjects.some(s => s.type === 'theory') && (
+                      <div>
+                        <strong style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Theory Subjects:</strong>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {subjects.filter(s => s.type === 'theory').map(sub => (
+                            <span key={sub._id} style={{ display: 'inline-block', fontSize: '0.85rem', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px' }}>
+                              {sub.name} ({sub.code})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {subjects.some(s => s.type === 'practical') && (
+                      <div>
+                        <strong style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Practical Subjects:</strong>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {subjects.filter(s => s.type === 'practical').map(sub => (
+                            <span key={sub._id} style={{ display: 'inline-block', fontSize: '0.85rem', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px' }}>
+                              {sub.name} ({sub.code})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <span style={{fontSize: '0.85rem', color: 'var(--accent-amber)'}}>No subjects configured for this branch/semester yet — contact admin</span>
+                )}
               </div>
             </div>
           </>

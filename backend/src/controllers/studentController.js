@@ -7,6 +7,7 @@ import { Subject } from '../models/Subject.js';
 import { CorrectionRequest } from '../models/CorrectionRequest.js';
 import { Notification } from '../models/Notification.js';
 import { User } from '../models/User.js';
+import { ClassSchedule } from '../models/ClassSchedule.js';
 
 export const getStudentProfile = asyncHandler(async (req, res) => {
   const student = await Student.findOne({ user: req.user.id }).populate('user', 'name email');
@@ -84,7 +85,7 @@ export const getDashboardData = asyncHandler(async (req, res) => {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const subjects = await Subject.find({ department: student.department, semester: student.semester });
+  const subjects = await Subject.find({ branch: student.branch, semester: student.semester });
   const subjectIds = subjects.map(s => s._id);
 
   const activeSessions = await AttendanceSession.find({
@@ -104,22 +105,50 @@ export const getDashboardData = asyncHandler(async (req, res) => {
 
   // 2. Subject-wise attendance
   const subjectAttendance = [];
-  let hasLowAttendance = false;
+  let totalClassesOverall = 0;
+  let hasAtRiskSubject = false;
+  let hasNotEligibleSubject = false;
 
   for (const subject of subjects) {
     const totalSessions = await AttendanceSession.countDocuments({ subject: subject._id, status: { $ne: 'cancelled' } });
     const attendedSessions = await Attendance.countDocuments({ subject: subject._id, student: student._id, status: 'present' });
     
-    const percentage = totalSessions > 0 ? Math.round((attendedSessions / totalSessions) * 100) : 100;
-    
-    if (percentage < 75 && totalSessions > 0) hasLowAttendance = true;
+    let percentage = 0;
+    let status = 'Not Started';
+
+    if (totalSessions > 0) {
+      percentage = Math.round((attendedSessions / totalSessions) * 100);
+      if (percentage >= 75) {
+        status = 'Eligible';
+      } else if (percentage >= 65) {
+        status = 'At Risk';
+        hasAtRiskSubject = true;
+      } else {
+        status = 'Not Eligible';
+        hasNotEligibleSubject = true;
+      }
+    }
+
+    totalClassesOverall += totalSessions;
 
     subjectAttendance.push({
       subject,
       attended: attendedSessions,
       total: totalSessions,
-      percentage
+      percentage,
+      status
     });
+  }
+
+  let overallStatus = 'Not Started';
+  if (totalClassesOverall > 0) {
+    if (hasNotEligibleSubject) {
+      overallStatus = 'Not Eligible';
+    } else if (hasAtRiskSubject) {
+      overallStatus = 'At Risk';
+    } else {
+      overallStatus = 'Eligible';
+    }
   }
 
   res.status(200).json({
@@ -127,8 +156,8 @@ export const getDashboardData = asyncHandler(async (req, res) => {
     data: {
       todayClasses,
       subjectAttendance,
-      hasLowAttendance,
-      examEligible: !hasLowAttendance
+      overallStatus,
+      totalClassesOverall
     }
   });
 });
@@ -186,4 +215,52 @@ export const markNotificationRead = asyncHandler(async (req, res) => {
   );
   if (!notification) throw new ApiError(404, 'Notification not found');
   res.status(200).json({ success: true, data: notification });
+});
+
+export const getTodaySchedule = asyncHandler(async (req, res) => {
+  const student = await Student.findOne({ user: req.user.id });
+  if (!student) throw new ApiError(404, 'Student profile not found');
+
+  const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long' }); // e.g. "Monday"
+
+  // Find schedule entries for this student's branch/section/semester for today
+  const scheduleEntries = await ClassSchedule.find({
+    branch: student.branch || student.department, // backward compatibility with department field if needed
+    section: student.section,
+    semester: student.semester,
+    dayOfWeek: todayStr
+  }).populate('subject', 'name code type').populate({ path: 'teacher', populate: { path: 'user', select: 'name email' } }).sort({ startTime: 1 });
+
+  // Check for active sessions for these classes today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const activeSessions = await AttendanceSession.find({
+    sessionDate: { $gte: today, $lt: tomorrow },
+    status: 'active'
+  });
+
+  const scheduledClasses = scheduleEntries.map(entry => {
+    // Find if there's an active session matching this subject and teacher
+    // We could match by exact time, but session logic currently relies on subject/teacher mostly
+    const activeSession = activeSessions.find(s => 
+      s.subject.toString() === entry.subject._id.toString() &&
+      s.teacher.toString() === entry.teacher._id.toString()
+    );
+
+    return {
+      _id: entry._id,
+      subject: entry.subject,
+      teacher: entry.teacher,
+      startTime: entry.startTime,
+      endTime: entry.endTime,
+      room: entry.room,
+      sessionType: entry.sessionType,
+      activeSessionId: activeSession ? activeSession._id : null
+    };
+  });
+
+  res.status(200).json({ success: true, data: scheduledClasses });
 });

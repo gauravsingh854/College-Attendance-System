@@ -16,11 +16,33 @@ export const StudentProfilePage = () => {
   const fetchProfile = async () => {
     try {
       const res = await studentApi.getProfile();
-      setProfile(res.data.data);
+      // Ensure we access the correct data property
+      setProfile(res.data);
     } catch (err) {
       console.warn('Failed to load profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    const oldPassword = prompt("Enter your current password:");
+    if (!oldPassword) return;
+    const newPassword = prompt("Enter your new password:");
+    if (!newPassword || newPassword.length < 6) {
+      alert("New password must be at least 6 characters.");
+      return;
+    }
+
+    try {
+      const response = await studentApi.changePassword({ oldPassword, newPassword });
+      if (response.success) {
+        alert("Password changed successfully!");
+      } else {
+        alert("Failed to change password: " + (response.message || "Unknown error"));
+      }
+    } catch (err) {
+      alert("Error changing password: " + (err.response?.data?.message || err.message || "Please try again later."));
     }
   };
 
@@ -56,7 +78,7 @@ export const StudentProfilePage = () => {
             </div>
             <div>
               <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>College Email</label>
-              <div style={{ fontWeight: 600 }}>{user?.email}</div>
+              <div style={{ fontWeight: 600, wordBreak: 'break-all' }}>{user?.email}</div>
             </div>
             <div>
               <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Roll Number</label>
@@ -64,7 +86,7 @@ export const StudentProfilePage = () => {
             </div>
             <div>
               <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Branch</label>
-              <div style={{ fontWeight: 600 }}>{profile?.department || 'N/A'}</div>
+              <div style={{ fontWeight: 600 }}>{profile?.branch || 'N/A'}</div>
             </div>
             <div>
               <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Academic Year & Sem</label>
@@ -113,7 +135,7 @@ export const StudentProfilePage = () => {
             Keep your account secure by using a strong password.
           </p>
 
-          <button className="btn btn-secondary" onClick={() => alert("Password reset link sent to your email.")}>
+          <button className="btn btn-secondary" onClick={handlePasswordChange}>
             Change Password
           </button>
         </div>

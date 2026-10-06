@@ -128,3 +128,31 @@ export const getStudentAttendance = asyncHandler(async (req, res) => {
     data: records,
   });
 });
+
+export const exportSessionAttendanceCsv = asyncHandler(async (req, res) => {
+  const { sessionId } = req.params;
+  
+  const records = await AttendanceRecord.find({ session: sessionId })
+    .populate({
+      path: 'student',
+      populate: { path: 'user', select: 'firstName lastName email' }
+    });
+
+  if (!records || records.length === 0) {
+    throw new ApiError(404, 'No attendance records found for this session');
+  }
+
+  let csv = 'Roll Number,Name,Email,Status,Marked At\\n';
+  records.forEach(record => {
+    const student = record.student;
+    const user = student.user;
+    const name = user ? `${user.firstName} ${user.lastName}` : 'Unknown';
+    const email = user ? user.email : 'Unknown';
+    const rollNumber = student.rollNumber || 'Unknown';
+    csv += `${rollNumber},${name},${email},${record.status},${record.markedAt}\\n`;
+  });
+
+  res.header('Content-Type', 'text/csv');
+  res.attachment(`attendance_session_${sessionId}.csv`);
+  return res.send(csv);
+});

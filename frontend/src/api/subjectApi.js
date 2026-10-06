@@ -1,5 +1,5 @@
 import axiosClient from './axiosClient.js';
 
 export const subjectApi = {
-  getAll: () => axiosClient.get('/subjects'),
+  getAll: (params) => axiosClient.get('/subjects', { params }),
 };

@@ -3,12 +3,13 @@ import { ApiError } from '../utils/ApiError.js';
 import { User } from '../models/User.js';
 import { Student } from '../models/Student.js';
 import { Teacher } from '../models/Teacher.js';
+import { Subject } from '../models/Subject.js';
 import { generateAuthToken } from '../services/tokenService.js';
 
 export const register = asyncHandler(async (req, res) => {
   const { 
     name, email, password, role, 
-    rollNumber, branch, section, academicYear, semester, enrolledSubjects,
+    rollNumber, branch, section, semester,
     facultyId, designation, teachingAssignments, phoneNumber
   } = req.body;
 
@@ -41,24 +42,37 @@ export const register = asyncHandler(async (req, res) => {
   });
 
   if (roleToSet === 'student') {
+    const derivedAcademicYear = semester <= 2 ? '1st Year' : semester <= 4 ? '2nd Year' : semester <= 6 ? '3rd Year' : '4th Year';
+    const subjects = await Subject.find({ branch, semester });
+    const enrolledSubjectIds = subjects.map(s => s._id);
+
     await Student.create({
       user: user._id,
       rollNumber: rollNumber.toUpperCase(),
       branch,
       section,
-      academicYear,
+      academicYear: derivedAcademicYear,
       semester,
-      enrolledSubjects,
+      enrolledSubjects: enrolledSubjectIds,
       consentGiven: true, // They must consent to register
       consentDate: new Date()
     });
   } else if (roleToSet === 'teacher') {
+    const populatedAssignments = (teachingAssignments || []).map(assignment => {
+      const sem = assignment.semester || 1;
+      const derivedYear = sem <= 2 ? '1st Year' : sem <= 4 ? '2nd Year' : sem <= 6 ? '3rd Year' : '4th Year';
+      return {
+        ...assignment,
+        academicYear: assignment.academicYear || derivedYear
+      };
+    });
+
     await Teacher.create({
       user: user._id,
       facultyId: facultyId.toUpperCase(),
       branch,
       designation,
-      teachingAssignments,
+      teachingAssignments: populatedAssignments,
       phoneNumber
     });
   }
@@ -121,5 +135,30 @@ export const getMe = asyncHandler(async (req, res) => {
         role: user.role,
       },
     },
+  });
+});
+
+export const changePassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    throw new ApiError(400, 'Both old and new passwords are required');
+  }
+
+  const user = await User.findById(req.user.id).select('+password');
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  if (!(await user.comparePassword(oldPassword))) {
+    throw new ApiError(401, 'Incorrect old password');
+  }
+
+  user.password = newPassword;
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'Password updated successfully'
   });
 });

@@ -3,6 +3,8 @@ import { Subject } from '../models/Subject.js';
 import { Student } from '../models/Student.js';
 import { Teacher } from '../models/Teacher.js';
 import { ApiError } from '../utils/ApiError.js';
+import { ClassSchedule } from '../models/ClassSchedule.js';
+import { AttendanceSession } from '../models/AttendanceSession.js';
 
 export const getTeacherProfile = asyncHandler(async (req, res) => {
   const teacher = await Teacher.findOne({ user: req.user.id }).populate('user', 'name email').populate('assignedSubjects');
@@ -99,6 +101,39 @@ export const getAssignedClasses = asyncHandler(async (req, res) => {
   });
 });
 
+export const getAllStudents = asyncHandler(async (req, res) => {
+  const teacher = await Teacher.findOne({ user: req.user.id });
+  if (!teacher) {
+    throw new ApiError(404, 'Teacher profile not found');
+  }
+
+  let filter = { branch: teacher.branch };
+  if (teacher.teachingAssignments && teacher.teachingAssignments.length > 0) {
+    const semesters = [...new Set(teacher.teachingAssignments.map(a => a.semester))];
+    filter.semester = { $in: semesters };
+  }
+
+  const students = await Student.find(filter).populate('user', 'name email');
+
+  const safeStudents = students.map((s) => ({
+    _id: s._id,
+    fullName: s.user.name,
+    email: s.user.email,
+    rollNumber: s.rollNumber,
+    branch: s.branch,
+    section: s.section,
+    academicYear: s.academicYear,
+    semester: s.semester,
+    attendancePercentage: 0
+  }));
+
+  res.status(200).json({
+    success: true,
+    count: safeStudents.length,
+    data: safeStudents,
+  });
+});
+
 export const getClassStudents = asyncHandler(async (req, res) => {
   const { assignmentId } = req.params;
   
@@ -139,4 +174,48 @@ export const getClassStudents = asyncHandler(async (req, res) => {
     count: safeStudents.length,
     data: safeStudents,
   });
+});
+
+export const getTodaySchedule = asyncHandler(async (req, res) => {
+  const teacher = await Teacher.findOne({ user: req.user.id });
+  if (!teacher) throw new ApiError(404, 'Teacher profile not found');
+
+  const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+
+  const scheduleEntries = await ClassSchedule.find({
+    teacher: teacher._id,
+    dayOfWeek: todayStr
+  }).populate('subject', 'name code type').sort({ startTime: 1 });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const activeSessions = await AttendanceSession.find({
+    teacher: teacher._id,
+    sessionDate: { $gte: today, $lt: tomorrow },
+    status: 'active'
+  });
+
+  const scheduledClasses = scheduleEntries.map(entry => {
+    const activeSession = activeSessions.find(s => 
+      s.subject.toString() === entry.subject._id.toString()
+    );
+
+    return {
+      _id: entry._id,
+      subject: entry.subject,
+      branch: entry.branch,
+      section: entry.section,
+      semester: entry.semester,
+      startTime: entry.startTime,
+      endTime: entry.endTime,
+      room: entry.room,
+      sessionType: entry.sessionType,
+      activeSessionId: activeSession ? activeSession._id : null
+    };
+  });
+
+  res.status(200).json({ success: true, data: scheduledClasses });
 });
